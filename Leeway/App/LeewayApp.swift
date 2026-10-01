@@ -6,6 +6,7 @@ struct LeewayApp: App {
     @State private var preferences = Preferences()
     @State private var claudeMonitor = UsageMonitor(provider: .claude)
     @State private var codexMonitor = UsageMonitor(provider: .codex)
+    @State private var updater = SoftwareUpdater()
 
     /// The monitors the selection asks for, in the order the panel stacks them.
     private var selected: [UsageMonitor] {
@@ -46,6 +47,7 @@ struct LeewayApp: App {
         Settings {
             SettingsView()
                 .environment(preferences)
+                .environment(updater)
         }
     }
 }

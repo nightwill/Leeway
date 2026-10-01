@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
 
     @Environment(Preferences.self) private var preferences
+    @Environment(SoftwareUpdater.self) private var updater
     @Environment(\.colorScheme) private var colorScheme
 
     /// Unknown until `onAppear`: reading the status touches the file system, and
@@ -12,6 +13,7 @@ struct SettingsView: View {
 
     var body: some View {
         @Bindable var preferences = preferences
+        @Bindable var updater = updater
 
         Form {
             Section {
@@ -92,6 +94,14 @@ struct SettingsView: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Automatically check for updates", isOn: $updater.checksAutomatically)
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheck)
+            } header: {
+                Text("Updates")
             }
         }
         .formStyle(.grouped)
