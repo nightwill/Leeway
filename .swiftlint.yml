@@ -1,0 +1,17 @@
+disabled_rules:
+  - trailing_comma
+
+line_length:
+  warning: 200
+  error: 240
+
+custom_rules:
+  non_localized_string:
+    included: ".*\\.swift"
+    name: "Localized String"
+    regex: '(?<!Text\(|String\(localized:\s|Label\(|Button\(|Toggle\(|Picker\(|Section\(|LabeledContent\(|TextField\(|ContentUnavailableView\(|navigationTitle\(|help\(|alert\(|confirmationDialog\(|fatalError\(|print\(|assertionFailure\(|preconditionFailure\(|return\s|\?\s|:\s|,\s|\w|\")(?:"[^" \n]+ [^"\n]*"|"[[:upper:]][[:lower:]]+"|""".*?""")'
+    message: "Wrap string in Text, or String(localized:)"
+    match_kinds: string
+
+excluded:
+  - build
