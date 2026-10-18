@@ -49,13 +49,20 @@ enum UsageProvider: String, CaseIterable, Identifiable {
     /// starts at, and the model it is set to start them on. Nothing here
     /// reaches a session already running: that one keeps what it was started
     /// with until it ends.
-    ///
-    /// Claude's own choice of model files its level under the model the last
-    /// reading named, so the menu is read again when that changes.
-    func modelMenu(for snapshot: UsageSnapshot?) async throws -> ModelMenu {
+    func modelMenu() async throws -> ModelMenu {
         switch self {
-        case .claude: try ClaudeModelSetting.menu(lastModel: snapshot?.modelID)
+        case .claude: try ClaudeModelSetting.menu()
         case .codex: try await CodexModelCommand.menu()
+        }
+    }
+
+    /// Asks again which model the provider's own choice resolves to, `true`
+    /// when the answer changed and the menu is worth reading again. Codex
+    /// marks its default in the listing every menu is read from.
+    func refreshDefaultModel() async -> Bool {
+        switch self {
+        case .claude: await ClaudeDefaultModel.refresh()
+        case .codex: false
         }
     }
 

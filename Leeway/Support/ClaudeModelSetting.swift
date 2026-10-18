@@ -10,21 +10,22 @@ import Foundation
 /// model it was started with until it ends.
 enum ClaudeModelSetting {
 
-    /// `lastModel` is the id the status line last reported. The provider's own
-    /// choice has no key of its own to file a level under, and the model it
-    /// resolved to last time is the closest thing on disk to one; without it
-    /// that entry offers no levels.
-    static func menu(lastModel: String?) throws -> ModelMenu {
+    /// The provider's own choice has no key of its own to file a level under,
+    /// so its level goes under the model that choice resolves to, as
+    /// `ClaudeDefaultModel` last heard it; until then that entry offers no
+    /// levels.
+    static func menu() throws -> ModelMenu {
         let settings = try ClaudeSettings.load()
         let current = settings[Key.model] as? String
-        var options = families + additional()
+        let resolved = ClaudeDefaultModel.remembered
+        var options = [automatic(resolvingTo: resolved)] + families + additional()
         if let current, !options.contains(where: { $0.id == current }) {
             options.append(.init(id: current, title: current))
         }
         let filed = ClaudeEffortSetting.levels(in: settings)
         options = options.map { option in
             var option = option
-            guard let key = option.id ?? lastModel.map(ClaudeEffortSetting.key(for:)) else { return option }
+            guard let key = option.id ?? resolved.map({ ClaudeEffortSetting.key(for: $0.id) }) else { return option }
             option.levels = ClaudeEffortSetting.levels
             option.effortKey = key
             option.effort = filed[key]
@@ -64,12 +65,22 @@ enum ClaudeModelSetting {
     /// A variable the CLI reads before it reads anything of its own.
     private static let environment = LoginVariable(name: "ANTHROPIC_MODEL", defaultsKey: "claude.environmentModel")
 
+    /// The provider's own choice, named with the model it resolves to: which
+    /// one that is changes with the plan and with releases, and an entry that
+    /// says only "Default" makes a new session on a model picked by hand
+    /// earlier look like a choice that did not take.
+    private static func automatic(resolvingTo model: ClaudeDefaultModel.Model?) -> ModelMenu.Option {
+        guard let model else { return .init(id: nil, title: String(localized: "Default")) }
+        let title = String(localized: "Default (\(model.name))",
+                           comment: "Model entry that leaves the choice to Claude Code, with the model it currently picks, e.g. Default (Fable 5.1)")
+        return .init(id: nil, title: title)
+    }
+
     /// The standing families, by alias rather than by version on purpose: an
     /// alias is a standing order for the newest model of its family, so a
     /// choice made here still means what it meant after the next release, where
     /// a pinned version quietly turns into last year's model.
     private static let families: [ModelMenu.Option] = [
-        .init(id: nil, title: String(localized: "Default")),
         .init(id: "opus", title: "Opus"),
         .init(id: "sonnet", title: "Sonnet"),
         .init(id: "haiku", title: "Haiku"),

@@ -57,7 +57,16 @@ struct UsageProviderSection: View {
             if monitor.provider == .claude { bridge = StatusLineBridge.status() }
             monitor.refresh()
         }
-        .task(id: monitor.snapshot?.modelID) { models = try? await monitor.provider.modelMenu(for: monitor.snapshot) }
+        // A change of the model answering is a sign `/model` was run in a
+        // session, which moves the setting too. The menu opens on what is
+        // remembered of the default and is read again once the CLI has
+        // confirmed it or named another.
+        .task(id: monitor.snapshot?.modelID) {
+            models = try? await monitor.provider.modelMenu()
+            if await monitor.provider.refreshDefaultModel() {
+                models = try? await monitor.provider.modelMenu()
+            }
+        }
     }
 
     @ViewBuilder
