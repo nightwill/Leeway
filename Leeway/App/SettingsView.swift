@@ -89,8 +89,9 @@ struct SettingsView: View {
                 Text("Claude Code")
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Leeway asks Claude Code for the counters every five minutes, by running its own /usage report. It spends no usage and needs nothing installed.")
-                    Text("The hook adds what that report cannot give: the limits as they arrive with every response of a running session, and the model answering it.")
+                    Text("Leeway reads the limits from Claude Code's own /usage report every few minutes. It spends none of your usage and needs nothing installed.")
+                    Text("The hook brings the limits with every response of a running session, so fewer reports run and your battery lasts longer.")
+                    Text("It's also the only way Leeway learns that a plan has no 5-hour limit, and which model is answering.")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
