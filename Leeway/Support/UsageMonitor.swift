@@ -24,6 +24,11 @@ final class UsageMonitor {
     private var lastReading: Date?
     private var reading: Task<Void, Never>?
 
+    /// When a session last wrote the limits into the state file. They come from
+    /// the server's answer to that session's turn, so they are as good as a
+    /// reading of our own, and one taken without starting a process.
+    private var lastFileReading: Date?
+
     /// Set when a reading was asked for while one was already under way.
     private var wantsReading = false
     private var readsInBackground: Bool
@@ -166,7 +171,11 @@ final class UsageMonitor {
 
         do {
             let data = try Data(contentsOf: ClaudeDirectory.stateURL)
-            absorb(try UsageSnapshot(data: data, capturedAt: modified))
+            let written = try UsageSnapshot(data: data, capturedAt: modified)
+            absorb(written)
+            // A session that carries no limits — an API key rather than a
+            // subscription — has told us nothing a reading would have.
+            if !written.isEmpty { lastFileReading = modified }
             // Only a reading that worked marks the file as seen. The stamp is the
             // one thing that would tell the next tick to try this file again, so
             // a failure leaves it alone.
@@ -180,7 +189,11 @@ final class UsageMonitor {
     private func read(staleAfter interval: TimeInterval) {
         // Not the `now` above: that one is deliberately coarse.
         let now = Date.now
-        if let lastReading, now.timeIntervalSince(lastReading) < interval { return }
+        // The file counts as a reading. Without that, a session writing it on
+        // every turn set the pace to its quickest and the loop started the CLI
+        // every half minute to learn what the file had just said.
+        let latest = [lastReading, lastFileReading].compactMap(\.self).max()
+        if let latest, now.timeIntervalSince(latest) < interval { return }
 
         guard reading == nil else {
             // The reading under way was launched before whatever asked for this
