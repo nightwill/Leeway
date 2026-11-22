@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// One provider's block in the panel: both of its limit windows, what it has to
-/// say instead when there is no reading yet, and the button that opens a window.
+/// One provider's block in the panel: its limit windows, what it has to say
+/// instead when there is no reading yet, and the button that opens a five-hour
+/// window on a plan that has them.
 struct UsageProviderSection: View {
 
     let monitor: UsageMonitor
@@ -29,7 +30,11 @@ struct UsageProviderSection: View {
             header
 
             if let snapshot = monitor.snapshot, !snapshot.isEmpty {
-                UsageWindowRow(kind: .fiveHour, window: snapshot.fiveHour, now: monitor.now)
+                // A plan without the limit has no window to report, and a row
+                // saying "No window running" forever reads as one about to start.
+                if monitor.hasFiveHourLimit {
+                    UsageWindowRow(kind: .fiveHour, window: snapshot.fiveHour, now: monitor.now)
+                }
                 UsageWindowRow(kind: .sevenDay, window: snapshot.sevenDay, now: monitor.now)
             } else {
                 waiting
@@ -37,7 +42,9 @@ struct UsageProviderSection: View {
 
             modelPicker
 
-            windowStarter
+            if monitor.hasFiveHourLimit {
+                windowStarter
+            }
 
             // A state file that cannot be read is reported either way: with no
             // reading it explains the wait, and with an older one it explains

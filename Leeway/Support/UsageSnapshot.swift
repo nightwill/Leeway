@@ -86,6 +86,13 @@ struct UsageSnapshot: Equatable {
     /// this, and none of them is any fresher.
     let capturedAt: Date
 
+    /// Whether the account has a five-hour limit at all, where the source can
+    /// say so; `nil` where it cannot. Codex names every window the plan has,
+    /// an untouched one included, so a report without a five-hour window is a
+    /// plan without one. Claude Code leaves the window out both when none is
+    /// running and when the plan has none, so its sources never say.
+    var hasFiveHourLimit: Bool?
+
     var isEmpty: Bool {
         fiveHour == nil && sevenDay == nil
     }
@@ -122,7 +129,8 @@ struct UsageSnapshot: Equatable {
             sevenDay: sevenDay,
             modelName: reading.modelName ?? modelName,
             modelID: reading.modelID ?? modelID,
-            capturedAt: carriesWindow && current ? reading.capturedAt : capturedAt
+            capturedAt: carriesWindow && current ? reading.capturedAt : capturedAt,
+            hasFiveHourLimit: reading.hasFiveHourLimit ?? hasFiveHourLimit
         )
     }
 

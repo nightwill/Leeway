@@ -66,6 +66,11 @@ request after the last reset. **Start 5-hour window** sends that first request f
   of the window it opens. The request ignores your `config.toml` (your model, effort, MCP
   servers and hooks are for your work, not for this) and stays out of your session history.
 
+Some plans have no 5-hour limit at all — Claude Ultra and Codex Pro, as of November 2026. There
+Leeway shows only the 7-day window, the menu bar follows it, and the button is gone. Codex says
+which windows a plan has. Claude doesn't, so Leeway works it out from your sessions: the 5-hour
+row goes away once you have used Claude Code long enough to move the weekly figure.
+
 ## Model and effort
 
 The **Model** menu sets what your *next* session starts with — the same thing `/model` and

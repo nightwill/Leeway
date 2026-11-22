@@ -20,7 +20,12 @@ struct MenuBarLabel: View {
 
     private var readings: [MenuBarTitle.Reading] {
         monitors.map { monitor in
-            MenuBarTitle.Reading(
+            // The tracked window is one choice for both providers, and a plan
+            // without a five-hour limit would show a dash for good under it.
+            // Its weekly window is then the only figure there is.
+            var format = format
+            if !monitor.hasFiveHourLimit { format.window = .sevenDay }
+            return MenuBarTitle.Reading(
                 tint: format.showsIcon ? monitor.provider.tint : nil,
                 text: format.text(for: monitor.snapshot, now: monitor.now)
             )

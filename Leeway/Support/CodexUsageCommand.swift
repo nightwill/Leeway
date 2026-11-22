@@ -32,20 +32,35 @@ enum CodexUsageCommand {
         guard let limits, limits.limitId == nil || limits.limitId == "codex" else { throw Failure.unreadable }
         var fiveHour: UsageSnapshot.Window?
         var sevenDay: UsageSnapshot.Window?
-        for window in [limits.primary, limits.secondary].compactMap({ $0 }) {
+        let windows = [limits.primary, limits.secondary].compactMap { $0 }
+        // Asked of the windows as reported rather than of `fiveHour` below: an
+        // untouched window is dropped there as not running, yet it is still
+        // proof the plan has the limit. Pro plans report the weekly one alone.
+        let hasFiveHourLimit = windows.contains { $0.windowDurationMins == fiveHourMinutes }
+        for window in windows {
             guard window.usedPercent.isFinite, window.resetsAt?.isFinite != false else { throw Failure.unreadable }
             guard let reset = window.resetsAt else { continue }
             let resetsAt = Date(timeIntervalSince1970: reset)
             guard isAnchored(window, resetsAt: resetsAt, now: now) else { continue }
             let value = UsageSnapshot.Window(usedPercentage: window.usedPercent, resetsAt: resetsAt)
             switch window.windowDurationMins {
-            case 300: fiveHour = value
-            case 10_080: sevenDay = value
+            case fiveHourMinutes: fiveHour = value
+            case sevenDayMinutes: sevenDay = value
             default: throw Failure.unsupportedWindows
             }
         }
-        return UsageSnapshot(fiveHour: fiveHour, sevenDay: sevenDay, modelName: nil, modelID: nil, capturedAt: now)
+        return UsageSnapshot(
+            fiveHour: fiveHour,
+            sevenDay: sevenDay,
+            modelName: nil,
+            modelID: nil,
+            capturedAt: now,
+            hasFiveHourLimit: hasFiveHourLimit
+        )
     }
+
+    private static let fiveHourMinutes = 300
+    private static let sevenDayMinutes = 10_080
 
     /// Whether a request has anchored this window, or it is the empty one the
     /// account is answered with while nothing has been asked of it yet.

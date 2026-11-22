@@ -48,6 +48,18 @@ struct CodexUsageChecks {
         let missingReset = try snapshot(["rateLimits": ["primary": ["usedPercent": 0, "windowDurationMins": 300]]])
         precondition(missingReset.isEmpty)
 
+        // Pro plans report the weekly window alone. A quiet Plus account reports
+        // an untouched five-hour window a full length ahead: not running, yet
+        // the limit is there — reading the flag off the running window would
+        // hide the button that opens one exactly when it is needed.
+        let weeklyOnly = try snapshot(["rateLimits": ["primary": sevenDay]])
+        precondition(weeklyOnly.hasFiveHourLimit == false)
+        let untouched = try snapshot(["rateLimits": [
+            "primary": ["usedPercent": 0, "windowDurationMins": 300, "resetsAt": 1_800_018_000],
+            "secondary": sevenDay,
+        ]])
+        precondition(untouched.fiveHour == nil && untouched.hasFiveHourLimit == true)
+
         for payload: [String: Any] in [
             [:],
             ["rateLimits": ["limitId": "other", "primary": fiveHour]],

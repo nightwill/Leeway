@@ -20,6 +20,29 @@ final class UsageMonitor {
     /// Set when the last direct reading failed; cleared by the next one that works.
     private(set) var readingFailure: String?
 
+    /// Whether the account has a five-hour limit, which not every plan has any
+    /// more. Until something shows it has none, it is taken to have one: that is
+    /// what an account looks like with no window running.
+    ///
+    /// Remembered across launches, because for Claude it takes a turn to find
+    /// out, and until then the panel would offer to open a window that never
+    /// opens — spending a turn and three readings on it.
+    private(set) var hasFiveHourLimit: Bool {
+        didSet {
+            guard hasFiveHourLimit != oldValue else { return }
+            UserDefaults.standard.set(hasFiveHourLimit, forKey: Self.fiveHourLimitKey(provider))
+        }
+    }
+
+    private static func fiveHourLimitKey(_ provider: UsageProvider) -> String {
+        "\(provider.rawValue).fiveHourLimit"
+    }
+
+    /// The furthest the weekly window has been seen to go in the state file,
+    /// which is what tells a write that follows a request from one that only
+    /// redraws a session's old figures.
+    private var lastWrittenWeek: UsageSnapshot.Window?
+
     private var lastModified: Date?
     private var lastReading: Date?
     private var reading: Task<Void, Never>?
@@ -47,6 +70,7 @@ final class UsageMonitor {
         // Nothing is on screen yet, and the selection says which of these ever
         // will be. Until it does, no reading is worth the process it costs.
         readsInBackground = false
+        hasFiveHourLimit = UserDefaults.standard.object(forKey: Self.fiveHourLimitKey(provider)) as? Bool ?? true
         reload()
         // Two cadences, because the two jobs cost differently: looking at the
         // state file is a stat call, while moving `now` redraws every countdown
@@ -204,6 +228,7 @@ final class UsageMonitor {
             // A session that carries no limits — an API key rather than a
             // subscription — has told us nothing a reading would have.
             if !written.isEmpty { lastFileReading = modified }
+            noteFiveHourLimit(in: written)
             // Only a reading that worked marks the file as seen. The stamp is the
             // one thing that would tell the next tick to try this file again, so
             // a failure leaves it alone.
@@ -272,6 +297,41 @@ final class UsageMonitor {
         // reset or an account change can lower the counters or remove a window.
         snapshot = provider == .codex ? reading : snapshot?.merging(reading) ?? reading
         pace(from: known, to: snapshot?.fiveHour)
+
+        // A five-hour window in hand settles it whatever was believed before;
+        // a plan that has gained the limit back shows it this way first.
+        if reading.fiveHour != nil {
+            hasFiveHourLimit = true
+        } else if let said = reading.hasFiveHourLimit {
+            hasFiveHourLimit = said
+        }
+    }
+
+    /// Learns from a state file write that the account has no five-hour limit.
+    ///
+    /// Claude Code never says so: `/usage` and the status line both leave the
+    /// window out when none is running as well. But a request opens the window
+    /// on any plan that has the limit, so a write that follows a request and
+    /// still carries none is a plan without one. What shows a write follows a
+    /// request is the weekly spend having moved since the last write — a
+    /// session redrawing its status line with old figures cannot move it.
+    ///
+    /// Compared write to write rather than against the snapshot: `/usage`
+    /// prints whole percents, and a finer figure from the file would read as
+    /// spend that never happened.
+    private func noteFiveHourLimit(in written: UsageSnapshot) {
+        guard let week = written.sevenDay else { return }
+        guard let previous = lastWrittenWeek else {
+            lastWrittenWeek = week
+            return
+        }
+        // A new window counts as spend as well: only a request opens one.
+        let spent = week.isSameWindow(as: previous)
+            ? week.usedPercentage > previous.usedPercentage
+            : week.resetsAt > previous.resetsAt
+        guard spent else { return }
+        lastWrittenWeek = week
+        if written.fiveHour == nil { hasFiveHourLimit = false }
     }
 
     /// Sets when the next reading falls due from how far this one moved the
