@@ -95,9 +95,25 @@ struct MenuBarFormat: Equatable {
         return shown.map { "\(Int($0.rounded()))%" }
     }
 
-    /// `2:14` — hours and minutes left, `0:07` inside the last hour.
+    /// `2:14` — hours and minutes left, `0:07` inside the last hour — and
+    /// `6d 7h` once it is a day or more, where a clock reading `151:23` is a
+    /// sum to work out rather than a time.
     static func countdown(_ interval: TimeInterval) -> String {
+        // Rounded up so the title never reads 0:00 with time still left. The
+        // day form is chosen on the rounded figure, or the last half minute
+        // before a day would read 24:00.
         let minutes = Int((interval / 60).rounded(.up))
-        return String(format: "%d:%02d", minutes / 60, minutes % 60)
+        guard minutes >= minutesPerDay else {
+            return String(format: "%d:%02d", minutes / 60, minutes % 60)
+        }
+        // Down, unlike the clock: the hours are the coarse part here, and
+        // rounding them up would add most of an hour that is not there. Taken
+        // from the rounded minutes all the same, so the last half minute
+        // before a day reads 1d rather than 23h.
+        return Duration.seconds(minutes * 60).formatted(
+            .units(allowed: [.days, .hours], width: .narrow, maximumUnitCount: 2, fractionalPart: .hide(rounded: .down))
+        )
     }
+
+    private static let minutesPerDay = 24 * 60
 }
