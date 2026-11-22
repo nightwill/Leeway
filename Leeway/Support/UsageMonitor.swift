@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Observation
 
 /// Keeps a current reading of the limits from the two sources that have one: the
@@ -33,6 +33,11 @@ final class UsageMonitor {
     private var wantsReading = false
     private var readsInBackground: Bool
 
+    /// True from the moment the displays go dark — lid closed, display sleep,
+    /// and the dark wakes the system takes for maintenance in between.
+    private var screensAreAsleep = false
+    private var screenObservers: [NSObjectProtocol] = []
+
     /// How long the reading in hand is left to stand before the next one, which
     /// the readings themselves set as the counters move.
     private var readingInterval = UsageMonitor.quietInterval
@@ -48,11 +53,21 @@ final class UsageMonitor {
         // in the panel along with the menu bar title.
         schedule(every: Self.pollInterval) { monitor in
             monitor.reload()
-            if monitor.readsInBackground { monitor.read(staleAfter: monitor.readingInterval) }
+            // A reading costs the CLI's whole start-up — seconds of CPU, which
+            // the system bills to this app. With the displays dark nobody sees
+            // the menu bar, so none is taken; the file is still looked at, as
+            // that is only a stat call. The tick after the displays wake does
+            // read, at once: the menu bar is current the moment the lid opens,
+            // and the one burst — enough to list the app under "Using
+            // Significant Energy" for a few minutes — is worth that. Holding it
+            // back would only move the same cost a few minutes later.
+            guard monitor.readsInBackground, !monitor.screensAreAsleep else { return }
+            monitor.read(staleAfter: monitor.readingInterval)
         }
         schedule(every: Self.clockInterval) { monitor in
             monitor.now = .now
         }
+        watchScreens()
     }
 
     /// How long ago the reading was taken, `nil` when there is no reading yet.
@@ -156,6 +171,19 @@ final class UsageMonitor {
             }
         }
         RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func watchScreens() {
+        let center = NSWorkspace.shared.notificationCenter
+        let changes = [
+            (NSWorkspace.screensDidSleepNotification, true),
+            (NSWorkspace.screensDidWakeNotification, false),
+        ]
+        screenObservers = changes.map { name, asleep in
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.screensAreAsleep = asleep }
+            }
+        }
     }
 
     private func reload() {
